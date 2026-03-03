@@ -58,11 +58,12 @@ This downloads `notify-waiting.js` to `~/.claude/hooks/` and automatically adds 
 The `Notification` hook fires each time Claude finishes a response and is waiting for user input. The hook:
 
 1. Plays `SystemSounds.Asterisk` immediately (non-blocking)
-2. Spawns a hidden PowerShell process that:
-   - Walks up the process tree from its own PID to find the first ancestor with a visible window (your terminal)
+2. Spawns a hidden, detached PowerShell process that:
+   - Receives Claude Code's PID (`process.ppid`) embedded in the script
+   - Walks up the process tree **from Claude's PID** to find the terminal window
    - Shows a `NotifyIcon` balloon tip
    - Runs a WinForms message loop so the click event can fire
-   - On click: calls `ShowWindow(SW_RESTORE)` + `SetForegroundWindow` on the terminal handle
+   - On click: calls `AllowSetForegroundWindow` + `ShowWindow(SW_RESTORE)` + `SetForegroundWindow` on the terminal handle
    - Auto-exits after 7 seconds via a timer
 
 ---

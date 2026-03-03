@@ -4,14 +4,33 @@
 // Plays a sound and shows a clickable Windows balloon notification.
 // Clicking the notification focuses the terminal window running Claude Code.
 
-const { exec } = require('child_process');
+'use strict';
 
-// Play the Windows notification sound (non-blocking, returns immediately)
-exec('powershell -WindowStyle Hidden -NonInteractive -Command "[System.Media.SystemSounds]::Asterisk.Play()"');
+const { execFile, spawn } = require('child_process');
 
-// PowerShell script: clickable balloon that focuses the Claude terminal on click.
-// Uses Application.Run() + timer so WinForms events (click/close) actually fire.
-// Walks up the process tree to find the first ancestor with a visible window.
+// --- 1. Play sound immediately (fire-and-forget) ---
+execFile('powershell.exe', [
+  '-WindowStyle', 'Hidden',
+  '-NonInteractive',
+  '-Command',
+  '[System.Media.SystemSounds]::Asterisk.Play()'
+], { windowsHide: true });
+
+// --- 2. Build balloon script ---
+//
+// KEY FIX: embed process.ppid (Claude Code's PID) directly into the script so
+// the process-tree walk starts from Claude, not from the balloon's own $PID.
+//
+// Why the old code found the wrong window:
+//   exec() on Windows spawns through a cmd.exe intermediary:
+//     balloon-powershell ← cmd.exe (exec) ← node (hook) ← node (claude) ← terminal
+//   That cmd.exe inherits the console from its parent and can report a non-zero
+//   MainWindowHandle, so the walk stopped there instead of reaching the terminal.
+//
+// Fix: start from process.ppid (Claude's PID) — the walk immediately heads toward
+// the terminal, with no intermediary processes in the way.
+const claudePid = process.ppid;
+
 const balloon = `
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -19,41 +38,42 @@ Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 public class ClaudeWin32 {
-    [DllImport("user32.dll")]
-    public static extern bool SetForegroundWindow(IntPtr hWnd);
-    [DllImport("user32.dll")]
-    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int dwProcessId);
 }
 "@
 
-function Get-ParentPid([int]$ProcessId) {
-    try {
-        return [int](Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop).ParentProcessId
-    } catch { return 0 }
+function Get-ParentPid([int]$pid) {
+    try { return [int](Get-CimInstance Win32_Process -Filter "ProcessId=$pid" -ErrorAction Stop).ParentProcessId }
+    catch { return 0 }
 }
 
-# Walk up the process tree to find the first ancestor with a visible window handle
+# Walk up from Claude Code's PID to find the terminal window.
+# Check the starting PID itself first (Claude may already have a console handle),
+# then walk up to parent processes.
 $targetHwnd = [IntPtr]::Zero
-$walkPid = $PID
-for ($i = 0; $i -lt 10; $i++) {
-    $parentId = Get-ParentPid $walkPid
-    if ($parentId -le 0) { break }
-    $parent = Get-Process -Id $parentId -ErrorAction SilentlyContinue
-    if ($parent -and $parent.MainWindowHandle -ne [IntPtr]::Zero) {
-        $targetHwnd = $parent.MainWindowHandle
+$walkPid = ${claudePid}
+for ($i = 0; $i -lt 15; $i++) {
+    $proc = Get-Process -Id $walkPid -ErrorAction SilentlyContinue
+    if ($proc -and $proc.MainWindowHandle -ne [IntPtr]::Zero) {
+        $targetHwnd = $proc.MainWindowHandle
         break
     }
+    $parentId = Get-ParentPid $walkPid
+    if ($parentId -le 0) { break }
     $walkPid = $parentId
 }
 
 $n = New-Object System.Windows.Forms.NotifyIcon
-$n.Icon = [System.Drawing.SystemIcons]::Information
+$n.Icon    = [System.Drawing.SystemIcons]::Information
 $n.Visible = $true
 
-# On click: restore + focus the terminal, then exit the message loop
+# On click: lift Windows foreground lock, restore + focus the terminal, then exit
 $n.add_BalloonTipClicked(({
     if ($targetHwnd -ne [IntPtr]::Zero) {
-        [ClaudeWin32]::ShowWindow($targetHwnd, 9)       # SW_RESTORE = 9
+        [ClaudeWin32]::AllowSetForegroundWindow(-1)   # ASFW_ANY — lift focus lock
+        [ClaudeWin32]::ShowWindow($targetHwnd, 9)     # SW_RESTORE = 9
         [ClaudeWin32]::SetForegroundWindow($targetHwnd)
     }
     [System.Windows.Forms.Application]::Exit()
@@ -76,5 +96,17 @@ $timer.Dispose()
 $n.Dispose()
 `;
 
+// --- 3. Spawn balloon as a detached, hidden, independent process ---
+// spawn() bypasses the cmd.exe intermediary that exec() adds.
+// detached + stdio:'ignore' + unref() lets it outlive this hook script.
 const encoded = Buffer.from(balloon, 'utf16le').toString('base64');
-exec(`powershell -WindowStyle Hidden -NonInteractive -EncodedCommand ${encoded}`);
+const ps = spawn('powershell.exe', [
+  '-WindowStyle', 'Hidden',
+  '-NonInteractive',
+  '-EncodedCommand', encoded
+], {
+  detached: true,
+  windowsHide: true,
+  stdio: 'ignore'
+});
+ps.unref();
