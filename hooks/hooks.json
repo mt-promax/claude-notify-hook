@@ -1,0 +1,15 @@
+{
+  "description": "Clickable Windows balloon notification when Claude is waiting for user input",
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/notify-waiting.js\""
+          }
+        ]
+      }
+    ]
+  }
+}
