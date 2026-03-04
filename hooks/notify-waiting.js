@@ -94,6 +94,13 @@ public class ClaudeWin32 {
 }
 "@
 
+# Config values interpolated from Node.js (Phase 2)
+$title     = '${config.balloon.title.replace(/'/g, "''")}'
+$message   = '${config.balloon.message.replace(/'/g, "''")}'
+$timeout   = ${config.balloon.timeout}
+$frequency = ${config.sound.frequency}
+$duration  = ${config.sound.duration}
+
 function Get-ParentPid([int]$pid) {
     try { return [int](Get-CimInstance Win32_Process -Filter "ProcessId=$pid" -ErrorAction Stop).ParentProcessId }
     catch { return 0 }
@@ -152,11 +159,11 @@ $n.add_BalloonTipShown(({
     } catch {}
 }).GetNewClosure())
 
-$n.ShowBalloonTip(6000, 'Claude Code', 'Waiting for your input...', [System.Windows.Forms.ToolTipIcon]::Info)
+$n.ShowBalloonTip($timeout, $title, $message, [System.Windows.Forms.ToolTipIcon]::Info)
 
 # Safety timer: exit after 7 s even if neither event fires
 $timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 7000
+$timer.Interval = ${config.balloon.timeout + 1000}
 $timer.add_Tick(({ $timer.Stop(); [System.Windows.Forms.Application]::Exit() }).GetNewClosure())
 $timer.Start()
 
