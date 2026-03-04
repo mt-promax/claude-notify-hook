@@ -6,7 +6,7 @@
 
 'use strict';
 
-const { execFile, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -56,17 +56,7 @@ const config = (function () {
   return c;
 }());
 
-// --- 1. Play sound immediately (fire-and-forget) ---
-try {
-  execFile('powershell.exe', [
-    '-WindowStyle', 'Hidden',
-    '-NonInteractive',
-    '-Command',
-    '[System.Media.SystemSounds]::Asterisk.Play()'
-  ], { windowsHide: true });
-} catch (_) {}
-
-// --- 2. Build balloon script ---
+// --- 1. Build balloon script ---
 //
 // KEY FIX: embed process.ppid (Claude Code's PID) directly into the script so
 // the process-tree walk starts from Claude, not from the balloon's own $PID.
@@ -100,6 +90,13 @@ $message   = '${config.balloon.message.replace(/'/g, "''")}'
 $timeout   = ${config.balloon.timeout}
 $frequency = ${config.sound.frequency}
 $duration  = ${config.sound.duration}
+
+# Generate configured tone -- Console.Beep wraps Win32 Beep; no assembly load needed
+try {
+    [Console]::Beep($frequency, $duration)
+} catch {
+    # Silent failure -- tone is non-critical; balloon still appears if audio unavailable
+}
 
 function Get-ParentPid([int]$pid) {
     try { return [int](Get-CimInstance Win32_Process -Filter "ProcessId=$pid" -ErrorAction Stop).ParentProcessId }
@@ -173,7 +170,7 @@ $timer.Dispose()
 $n.Dispose()
 `;
 
-// --- 3. Spawn balloon as a detached, hidden, independent process ---
+// --- 2. Spawn balloon as a detached, hidden, independent process ---
 // spawn() bypasses the cmd.exe intermediary that exec() adds.
 // detached + stdio:'ignore' + unref() lets it outlive this hook script.
 // stderr is piped so PowerShell errors surface to the error log (RELY-02).
