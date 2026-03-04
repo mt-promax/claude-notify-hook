@@ -72,4 +72,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Reliability | 1/1 | Complete   | 2026-03-04 |
 | 2. Config | 1/1 | Complete   | 2026-03-04 |
 | 3. Sound | 1/1 | Complete   | 2026-03-04 |
-| 4. Focus | 0/TBD | Not started | - |
+| 4. Focus | 0/1 | Not started | - |
