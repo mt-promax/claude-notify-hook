@@ -1,13 +1,13 @@
 # install.ps1
 # Claude Notify Hook — standalone installer for Windows
-# Usage: irm https://raw.githubusercontent.com/mt-promax/claude-notify-hook/main/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/mt-promax/claude-notify-hook/master/install.ps1 | iex
 
 $ErrorActionPreference = 'Stop'
 
 $hookDir      = "$env:USERPROFILE\.claude\hooks"
 $settingsFile = "$env:USERPROFILE\.claude\settings.json"
 $hookDest     = "$hookDir\notify-waiting.js"
-$rawBase      = "https://raw.githubusercontent.com/mt-promax/claude-notify-hook/main"
+$rawBase      = "https://raw.githubusercontent.com/mt-promax/claude-notify-hook/master"
 
 Write-Host ""
 Write-Host "Claude Notify Hook - Installer" -ForegroundColor Cyan

@@ -22,7 +22,7 @@ claude plugin install mt-promax/claude-notify-hook
 ### Option 2 — One-liner PowerShell installer
 
 ```powershell
-irm https://raw.githubusercontent.com/mt-promax/claude-notify-hook/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/mt-promax/claude-notify-hook/master/install.ps1 | iex
 ```
 
 This downloads `notify-waiting.js` to `~/.claude/hooks/` and automatically adds the hook entry to `~/.claude/settings.json`.
