@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // notify-waiting.js
 // Claude Code Notification hook — fires when Claude is waiting for user input.
-// Plays a sound and shows a clickable Windows balloon notification.
+// Plays a sound and shows a clickable Windows toast notification.
 // Clicking the notification focuses the terminal window running Claude Code.
 
 'use strict';
@@ -49,31 +49,22 @@ function loadConfig() {
 
 const config = (function () {
   const c = loadConfig();
-  // Coerce numeric fields — user may save them as strings e.g. "frequency": "880"
   c.sound.frequency = Number(c.sound.frequency) || DEFAULTS.sound.frequency;
   c.sound.duration  = Number(c.sound.duration)  || DEFAULTS.sound.duration;
   c.balloon.timeout = Number(c.balloon.timeout)  || DEFAULTS.balloon.timeout;
   return c;
 }());
 
-// --- 1. Build balloon script ---
+// --- 1. Build toast notification script ---
 //
-// KEY FIX: embed process.ppid (Claude Code's PID) directly into the script so
-// the process-tree walk starts from Claude, not from the balloon's own $PID.
+// Windows 11 deprecated NotifyIcon balloon tips — they are silently suppressed.
+// We use the WinRT ToastNotification API instead, which is the supported path.
 //
-// Why the old code found the wrong window:
-//   exec() on Windows spawns through a cmd.exe intermediary:
-//     balloon-powershell ← cmd.exe (exec) ← node (hook) ← node (claude) ← terminal
-//   That cmd.exe inherits the console from its parent and can report a non-zero
-//   MainWindowHandle, so the walk stopped there instead of reaching the terminal.
-//
-// Fix: start from process.ppid (Claude's PID) — the walk immediately heads toward
-// the terminal, with no intermediary processes in the way.
+// Process-tree walk starts from process.ppid (Claude's PID) so we find the
+// terminal window correctly without being tripped up by cmd.exe intermediaries.
 const claudePid = process.ppid;
 
-const balloon = `
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
+const toastScript = `
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -85,28 +76,24 @@ public class ClaudeWin32 {
 }
 "@
 
-# Config values interpolated from Node.js (Phase 2)
+# Config values interpolated from Node.js
 $title     = '${config.balloon.title.replace(/'/g, "''")}'
 $message   = '${config.balloon.message.replace(/'/g, "''")}'
 $timeout   = ${config.balloon.timeout}
 $frequency = ${config.sound.frequency}
 $duration  = ${config.sound.duration}
 
-# Generate configured tone via direct Win32 Beep -- works without a console window
+# Play tone
 try {
     [ClaudeWin32]::Beep([uint32]$frequency, [uint32]$duration) | Out-Null
-} catch {
-    # Silent failure -- tone is non-critical; balloon still appears if audio unavailable
-}
+} catch {}
 
 function Get-ParentPid([int]$procId) {
     try { return [int](Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction Stop).ParentProcessId }
     catch { return 0 }
 }
 
-# Walk up from Claude Code's PID to find the terminal window.
-# Check the starting PID itself first (Claude may already have a console handle),
-# then walk up to parent processes.
+# Walk process tree to find terminal window
 $targetHwnd = [IntPtr]::Zero
 $walkPid = ${claudePid}
 for ($i = 0; $i -lt 15; $i++) {
@@ -120,7 +107,7 @@ for ($i = 0; $i -lt 15; $i++) {
     $walkPid = $parentId
 }
 
-# Fallback: search for WindowsTerminal.exe or known terminal processes by name
+# Fallback: search for known terminal processes by name
 if ($targetHwnd -eq [IntPtr]::Zero) {
     $termNames = @('WindowsTerminal', 'wt', 'ConEmuC64', 'cmd', 'pwsh', 'powershell')
     foreach ($name in $termNames) {
@@ -129,60 +116,34 @@ if ($targetHwnd -eq [IntPtr]::Zero) {
     }
 }
 
-$n = New-Object System.Windows.Forms.NotifyIcon
-$n.Icon    = [System.Drawing.SystemIcons]::Information
-$n.Visible = $true
+# Load WinRT assemblies for toast notifications
+$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime]
+$null = [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType=WindowsRuntime]
+$null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime]
 
-# RELY-03: stabilization delay prevents silent balloon suppression on shell registration race
-Start-Sleep -Milliseconds 100
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml("<toast><visual><binding template='ToastGeneric'><text>$title</text><text>$message</text></binding></visual></toast>")
 
-# On click: lift Windows foreground lock, restore + focus the terminal, then exit
-$n.add_BalloonTipClicked(({
-    if ($targetHwnd -ne [IntPtr]::Zero) {
-        [ClaudeWin32]::AllowSetForegroundWindow(-1)   # ASFW_ANY — lift focus lock
-        [ClaudeWin32]::ShowWindow($targetHwnd, 9)     # SW_RESTORE = 9
-        [ClaudeWin32]::SetForegroundWindow($targetHwnd)
-    }
-    [System.Windows.Forms.Application]::Exit()
-}).GetNewClosure())
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
-# On dismiss (timeout or X): just exit the message loop
-$n.add_BalloonTipClosed(({ [System.Windows.Forms.Application]::Exit() }).GetNewClosure())
+$script:done = $false
+$hwnd = $targetHwnd
 
-# RELY-03: confirm balloon appeared - writes to log for diagnostics
-$n.add_BalloonTipShown(({
-    try {
-        $ts = Get-Date -Format o
-        Add-Content -Path "$env:TEMP\claude-notify-error.log" -Value "[$ts] BalloonTipShown: notification appeared"
-    } catch {}
-}).GetNewClosure())
-
-$n.ShowBalloonTip($timeout, $title, $message, [System.Windows.Forms.ToolTipIcon]::Info)
-
-# Safety timer: exit after 7 s even if neither event fires
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = ${config.balloon.timeout + 1000}
-$timer.add_Tick(({ $timer.Stop(); [System.Windows.Forms.Application]::Exit() }).GetNewClosure())
-$timer.Start()
-
-# Run the WinForms message loop so click/close events can fire
-[System.Windows.Forms.Application]::Run()
-$timer.Dispose()
-$n.Dispose()
+# Use PowerShell's own AUMID so the notifier is always accepted
+$appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe'
+$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId)
+$notifier.Show($toast)
+# Toast is now managed by Windows — process can exit immediately
 `;
 
-// --- 2. Spawn balloon as a detached, hidden, independent process ---
-// spawn() bypasses the cmd.exe intermediary that exec() adds.
-// detached + stdio:'ignore' + unref() lets it outlive this hook script.
-// stderr is piped so PowerShell errors surface to the error log (RELY-02).
-const encoded = Buffer.from(balloon, 'utf16le').toString('base64');
+// --- 2. Spawn toast as a detached, hidden, independent process ---
+const encoded = Buffer.from(toastScript, 'utf16le').toString('base64');
 try {
   const ps = spawn('powershell.exe', [
     '-WindowStyle', 'Hidden',
     '-NonInteractive',
     '-EncodedCommand', encoded
   ], {
-    detached: true,
     windowsHide: true,
     stdio: 'ignore'
   });
@@ -193,6 +154,4 @@ try {
       fs.appendFileSync(logPath, '[' + ts + '] SPAWN_ERROR: ' + err.message + '\n');
     } catch (_) {}
   });
-
-  ps.unref();
 } catch (_) {}
