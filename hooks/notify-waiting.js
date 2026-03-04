@@ -95,13 +95,12 @@ $timeout   = ${config.balloon.timeout}
 $frequency = ${config.sound.frequency}
 $duration  = ${config.sound.duration}
 
-# Play robot-y chirp sequence (overrides single-tone config for now)
+# Generate configured tone -- Console.Beep wraps Win32 Beep; no assembly load needed
 try {
-    @(1400,20), @(1400,20), @(700,15), @(1400,20), @(700,30) | ForEach-Object {
-        [ClaudeWin32]::Beep([uint32]$_[0], [uint32]$_[1]) | Out-Null
-        Start-Sleep -Milliseconds 12
-    }
-} catch {}
+    [Console]::Beep($frequency, $duration)
+} catch {
+    # Silent failure -- tone is non-critical; balloon still appears if audio unavailable
+}
 
 function Get-ParentPid([int]$procId) {
     try { return [int](Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction Stop).ParentProcessId }
