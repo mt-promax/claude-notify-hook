@@ -18,8 +18,8 @@
 
 ### Sound
 
-- [ ] **SND-01**: Hook plays a generated tone (not Windows Asterisk system sound)
-- [ ] **SND-02**: Tone frequency and duration are configurable via config file
+- [x] **SND-01**: Hook plays a generated tone (not Windows Asterisk system sound)
+- [x] **SND-02**: Tone frequency and duration are configurable via config file
 
 ### Config
 
@@ -59,8 +59,8 @@
 | CONF-01 | Phase 2 | Pending |
 | CONF-02 | Phase 2 | Pending |
 | CONF-03 | Phase 2 | Pending |
-| SND-01 | Phase 3 | Pending |
-| SND-02 | Phase 3 | Pending |
+| SND-01 | Phase 3 | Complete |
+| SND-02 | Phase 3 | Complete |
 | FOCUS-01 | Phase 4 | Pending |
 | FOCUS-02 | Phase 4 | Pending |
 
