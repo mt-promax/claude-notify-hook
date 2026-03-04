@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-reliability/01-01 — Phase 1 reliability shipped
-last_updated: "2026-03-04T11:48:54.521Z"
+stopped_at: "02-config/02-01 paused at Task 3 checkpoint:human-verify"
+last_updated: "2026-03-04T12:09:53.487Z"
 last_activity: 2026-03-04 — Phase 1 executed; 01-01 shipped (spawn error capture, balloon stabilization, BalloonTipShown log)
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
 ---
 
 ---
@@ -79,6 +79,10 @@ Recent decisions affecting current work:
 - [Roadmap]: AttachThreadInput pattern for focus — AllowSetForegroundWindow(-1) alone insufficient
 - [Phase 01-reliability]: Log path uses process.env.TEMP with USERPROFILE fallback so both Node.js and PowerShell sides write to the same %TEMP%/claude-notify-error.log file
 - [Phase 01-reliability]: BalloonTipShown handler registered before ShowBalloonTip — ensures the confirmation log entry fires even on fast machines where event fires immediately
+- [Phase 02-config]: Use USERPROFILE for CONFIG_PATH — handles roaming profiles and non-C: installs
+- [Phase 02-config]: BOM strip before JSON.parse — Notepad UTF-8 BOM breaks JSON.parse silently
+- [Phase 02-config]: Nested spread at sound/balloon level (not top-level) — enables partial user configs
+- [Phase 02-config]: Safety timer uses config.balloon.timeout + 1000 instead of hardcoded 7000
 
 ### Pending Todos
 
@@ -91,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T11:45:28.939Z
-Stopped at: Completed 01-reliability/01-01 — Phase 1 reliability shipped
+Last session: 2026-03-04T12:09:46.123Z
+Stopped at: 02-config/02-01 paused at Task 3 checkpoint:human-verify
 Resume file: None
