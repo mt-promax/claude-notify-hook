@@ -27,7 +27,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. Triggering the hook while the PowerShell spawn is broken produces a log file at `%TEMP%\claude-notify-error.log` with a readable error message
   2. The balloon appears on every normal trigger — the 100ms stabilization delay prevents silent suppression
   3. When the balloon appears, a `BalloonTipShown` confirmation is written to the log confirming it displayed
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Replace silent try/catch with spawn error capture + add balloon stabilization delay and BalloonTipShown handler
 
 ### Phase 2: Config
 **Goal**: Users can customize sound, message, and timeout via a JSON file; hook works with no config file present
@@ -66,7 +69,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Reliability | 0/TBD | Not started | - |
+| 1. Reliability | 0/1 | Not started | - |
 | 2. Config | 0/TBD | Not started | - |
 | 3. Sound | 0/TBD | Not started | - |
 | 4. Focus | 0/TBD | Not started | - |
