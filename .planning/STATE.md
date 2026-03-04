@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: Completed 01-reliability/01-01 — Phase 1 reliability shipped
+last_updated: "2026-03-04T11:45:28.945Z"
+last_activity: 2026-03-04 — Phase 1 planned; 1 plan (01-01) verified and ready
+progress:
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 100
+---
+
 # Project State
 
 ## Project Reference
@@ -9,29 +25,29 @@ See: .planning/PROJECT.md (updated 2026-03-04)
 
 ## Current Position
 
-Phase: 1 of 4 (Reliability)
-Plan: 0 of 1 — ready to execute
-Status: Planned — ready to execute
-Last activity: 2026-03-04 — Phase 1 planned; 1 plan (01-01) verified and ready
+Phase: 1 of 4 (Reliability) — COMPLETE
+Plan: 1 of 1 — complete
+Status: Phase 1 shipped; ready for Phase 2 (Config)
+Last activity: 2026-03-04 — Phase 1 executed; 01-01 shipped (spawn error capture, balloon stabilization, BalloonTipShown log)
 
-Progress: [░░░░░░░░░░] 0% (planning complete, execution pending)
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: -
+- Total plans completed: 1
+- Average duration: 2 min
+- Total execution time: 2 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-reliability | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 01-01 (2 min)
+- Trend: baseline
 
 *Updated after each plan completion*
 
@@ -46,6 +62,8 @@ Recent decisions affecting current work:
 - [Roadmap]: Config file next to hook, not registry — easy to find and edit
 - [Roadmap]: Target WindowsTerminal.exe by name, not PID walk — more reliable
 - [Roadmap]: AttachThreadInput pattern for focus — AllowSetForegroundWindow(-1) alone insufficient
+- [Phase 01-reliability]: Log path uses process.env.TEMP with USERPROFILE fallback so both Node.js and PowerShell sides write to the same %TEMP%/claude-notify-error.log file
+- [Phase 01-reliability]: BalloonTipShown handler registered before ShowBalloonTip — ensures the confirmation log entry fires even on fast machines where event fires immediately
 
 ### Pending Todos
 
@@ -58,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04
-Stopped at: Phase 1 planned — 1 plan verified, ready to execute
+Last session: 2026-03-04T11:45:28.939Z
+Stopped at: Completed 01-reliability/01-01 — Phase 1 reliability shipped
 Resume file: None

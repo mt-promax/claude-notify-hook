@@ -7,9 +7,9 @@
 
 ### Reliability
 
-- [ ] **RELY-01**: Notification appears on every Claude Code trigger (no silent failures)
-- [ ] **RELY-02**: Spawn failure is logged to a file so the user can diagnose issues
-- [ ] **RELY-03**: Balloon shows reliably — 100ms stabilization delay after NotifyIcon.Visible = true before ShowBalloonTip
+- [x] **RELY-01**: Notification appears on every Claude Code trigger (no silent failures)
+- [x] **RELY-02**: Spawn failure is logged to a file so the user can diagnose issues
+- [x] **RELY-03**: Balloon shows reliably — 100ms stabilization delay after NotifyIcon.Visible = true before ShowBalloonTip
 
 ### Focus
 
@@ -53,9 +53,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RELY-01 | Phase 1 | Pending |
-| RELY-02 | Phase 1 | Pending |
-| RELY-03 | Phase 1 | Pending |
+| RELY-01 | Phase 1 | Complete |
+| RELY-02 | Phase 1 | Complete |
+| RELY-03 | Phase 1 | Complete |
 | CONF-01 | Phase 2 | Pending |
 | CONF-02 | Phase 2 | Pending |
 | CONF-03 | Phase 2 | Pending |

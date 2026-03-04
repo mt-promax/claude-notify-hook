@@ -12,7 +12,7 @@ Four phases transform a partially-working Claude Code hook into a reliable, conf
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Reliability** - Spawn failures surface to an error log; balloon shows on every trigger
+- [x] **Phase 1: Reliability** - Spawn failures surface to an error log; balloon shows on every trigger (completed 2026-03-04)
 - [ ] **Phase 2: Config** - JSON config file wired end-to-end with baked-in defaults
 - [ ] **Phase 3: Sound** - Generated tone replaces Windows Asterisk system sound
 - [ ] **Phase 4: Focus** - Clicking the balloon reliably focuses Windows Terminal
@@ -69,7 +69,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Reliability | 0/1 | Not started | - |
+| 1. Reliability | 1/1 | Complete   | 2026-03-04 |
 | 2. Config | 0/TBD | Not started | - |
 | 3. Sound | 0/TBD | Not started | - |
 | 4. Focus | 0/TBD | Not started | - |
