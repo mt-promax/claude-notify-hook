@@ -1,8 +1,10 @@
 {
   "name": "claude-notify-hook",
+  "version": "1.0.0",
   "description": "Clickable Windows balloon notification when Claude is waiting for your input — click it to jump straight to the terminal.",
   "author": {
     "name": "mt-promax",
     "url": "https://github.com/mt-promax"
-  }
+  },
+  "hooks": "hooks/hooks.json"
 }
