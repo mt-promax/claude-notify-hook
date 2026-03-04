@@ -8,54 +8,68 @@ A Claude Code hook that shows a clickable Windows balloon notification whenever 
 
 Click the notification and land in the right terminal window, every single time.
 
+## Current State (v1.0)
+
+Shipped 2026-03-04. The hook reliably fires, plays a configurable tone, shows a WinRT toast notification, and contains click-to-focus code (AttachThreadInput + SendInput fallback). Focus behavior was not manually verified before shipping.
+
+- **250 LOC** JavaScript (hooks/notify-waiting.js)
+- **Stack**: Node.js, PowerShell 5.1, WinRT ToastNotification API, Win32 P/Invoke
+- **Known gap**: FOCUS-01/02 click-to-focus not manually tested — code is in place
+
 ## Requirements
 
 ### Validated
 
 - ✓ Hook fires on Claude Code `Notification` event — existing
 - ✓ Plays a sound immediately on trigger — existing
-- ✓ Shows a balloon tip via Windows NotifyIcon — existing
+- ✓ Shows a WinRT toast notification — v1.0 (upgraded from WinForms balloon)
 - ✓ Spawns detached PowerShell so hook exits cleanly — existing
-- ✓ Process-tree walk to find terminal window — existing (partially working)
+- ✓ Notification appears reliably on every trigger — v1.0 (RELY-01)
+- ✓ Spawn failure logged to `%TEMP%\claude-notify-error.log` — v1.0 (RELY-02)
+- ✓ 100ms balloon stabilization delay + BalloonTipShown handler — v1.0 (RELY-03)
+- ✓ JSON config file with DEFAULTS, loadConfig(), BOM strip — v1.0 (CONF-01, CONF-02, CONF-03)
+- ✓ Generated `[Console]::Beep` tone, frequency/duration configurable — v1.0 (SND-01, SND-02)
+- ✓ AttachThreadInput + SendInput ALT fallback wired into click handler — v1.0 (FOCUS-01, FOCUS-02 — code shipped, not verified)
 
 ### Active
 
-- [ ] Notification appears reliably on every trigger (no silent failures)
-- [ ] Clicking the notification focuses the correct Windows Terminal window
-- [ ] Sound is a unique generated tone (not the Windows Asterisk system sound)
-- [ ] User-editable config file for sound frequency/duration, message text, and timeout
-- [ ] Config has sensible defaults (works out of the box with no config file)
+- [ ] Verify click-to-focus works in practice (FOCUS-01, FOCUS-02) — manual test pending
 
 ### Out of Scope
 
 - macOS/Linux support — Windows-only by design (PowerShell + WinForms)
 - Push to phone or external devices — local desktop notification only
 - Multi-monitor window placement — focus the window, not position it
-- Toast notifications (UWP) — balloon tip is sufficient and simpler
 
 ## Context
 
-- **Terminal**: Windows Terminal (wt.exe) — the target window for focus. Process-tree walk must resolve to WindowsTerminal.exe's MainWindowHandle.
-- **Current failure mode**: Notification sometimes doesn't appear (silent spawn failure); click never focuses the terminal (SetForegroundWindow call either targets wrong HWND or Windows foreground lock blocks it).
-- **Windows foreground lock**: When the balloon click fires, the calling process must be the foreground owner or have been granted permission. This is the likely root cause of click-to-focus failures.
-- **Sound**: Currently uses `[System.Media.SystemSounds]::Asterisk` which produces the Windows error beep. Replace with a synthesized tone using `[System.Media.SoundPlayer]` + generated WAV bytes or `[Console]::Beep` with custom frequency/duration.
-- **Config location**: `%USERPROFILE%\.claude\hooks\notify-waiting-config.json` — next to the hook file, easy to find.
+- **Terminal**: Windows Terminal (wt.exe). Name-based lookup preferred over PID walk.
+- **Tone**: `[Console]::Beep($frequency, $duration)` — single PS process handles both tone and balloon. Default 880Hz / 220ms.
+- **Config**: `%USERPROFILE%\.claude\hooks\notify-waiting-config.json` — UTF-8 BOM handled, partial configs merged with DEFAULTS.
+- **Focus**: AttachThreadInput primary, SendInput ALT-key injection fallback for cross-integrity-level (elevated WT) scenario. Both paths silent-fail.
+- **Notifications**: Upgraded from WinForms NotifyIcon (suppressed on Windows 11) to WinRT ToastNotification API.
 
 ## Constraints
 
 - **Runtime**: PowerShell 5.1 (built into Windows — no install required). No .NET beyond what's in the GAC.
-- **No external files for sound**: Tone must be generated at runtime — users shouldn't need to download a .wav file.
-- **Backward compatibility**: Hook must still work if no config file exists (all config values have defaults baked in).
-- **Detached process**: PowerShell balloon process must stay detached and not block Claude Code's hook timeout.
+- **No external files for sound**: Tone generated at runtime via `[Console]::Beep`.
+- **Backward compatibility**: Hook works with no config file — DEFAULTS object baked in.
+- **Detached process**: PowerShell balloon process stays detached and does not block Claude Code's hook timeout.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Generated tone over system sound | Unique identity; no file dependency; frequency/duration configurable | — Pending |
-| Config file next to hook (not registry) | Easy to find, edit, share; version-controllable | — Pending |
-| Target WindowsTerminal.exe directly | User confirmed WT is their terminal; name-based lookup more reliable than PID walk alone | — Pending |
-| Fix foreground lock with input injection or AttachThreadInput | AllowSetForegroundWindow(-1) alone insufficient; need to force focus | — Pending |
+| Generated tone over system sound | Unique identity; no file dependency; frequency/duration configurable | ✓ Shipped — `[Console]::Beep` works on physical Windows 11 |
+| Config file next to hook (not registry) | Easy to find, edit, share; version-controllable | ✓ Shipped — USERPROFILE path, BOM-safe JSON parse |
+| Target WindowsTerminal.exe by name | More reliable than PID walk alone | ✓ Shipped — name search first, PID walk fallback |
+| AttachThreadInput + SendInput fallback for focus | AllowSetForegroundWindow(-1) alone insufficient | ✓ Code shipped — manual verification skipped |
+| WinRT ToastNotification over WinForms NotifyIcon | WinForms balloons silently suppressed on Windows 11 | ✓ Shipped — resolves silent notification issue |
+| USERPROFILE for CONFIG_PATH | Handles roaming profiles and non-C: installs | ✓ Shipped |
+| BOM strip before JSON.parse | Notepad writes UTF-8 BOM by default; breaks JSON.parse silently | ✓ Shipped |
+| Nested spread merge (sound/balloon level) | Enables partial user configs | ✓ Shipped |
+| Console.Beep over SoundPlayer + WAV bytes | Simplest 1-line approach, PS 5.1 built-in, no assembly load | ✓ Shipped — may be silent on VMs (acceptable) |
+| Silent catch around Beep | Tone failure must never suppress the balloon | ✓ Shipped |
 
 ---
-*Last updated: 2026-03-04 after initialization*
+*Last updated: 2026-03-04 after v1.0 milestone*
