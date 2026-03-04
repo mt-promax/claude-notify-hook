@@ -15,6 +15,15 @@ process.on('uncaughtException', () => process.exit(0));
 
 const logPath = path.join(process.env.TEMP || process.env.USERPROFILE, 'claude-notify-error.log');
 
+// --- Read stdin payload from Claude Code ---
+let hookData = {};
+try {
+  const raw = fs.readFileSync(0, 'utf8'); // fd 0 = stdin
+  hookData = JSON.parse(raw);
+} catch (_) {}
+
+const projectName = hookData.cwd ? path.basename(hookData.cwd) : null;
+
 // --- Config loading ---
 const DEFAULTS = {
   sound: {
@@ -27,6 +36,8 @@ const DEFAULTS = {
     timeout: 6000
   }
 };
+
+// Override title with project name if available (set after hookData is read below)
 
 const CONFIG_PATH = path.join(
   process.env.USERPROFILE || process.env.HOME,
@@ -52,6 +63,7 @@ const config = (function () {
   c.sound.frequency = Number(c.sound.frequency) || DEFAULTS.sound.frequency;
   c.sound.duration  = Number(c.sound.duration)  || DEFAULTS.sound.duration;
   c.balloon.timeout = Number(c.balloon.timeout)  || DEFAULTS.balloon.timeout;
+  if (projectName) c.balloon.title = 'PROJECT: ' + projectName;
   return c;
 }());
 
@@ -83,9 +95,12 @@ $timeout   = ${config.balloon.timeout}
 $frequency = ${config.sound.frequency}
 $duration  = ${config.sound.duration}
 
-# Play tone
+# Play robot-y chirp sequence (overrides single-tone config for now)
 try {
-    [ClaudeWin32]::Beep([uint32]$frequency, [uint32]$duration) | Out-Null
+    @(1400,20), @(1400,20), @(700,15), @(1400,20), @(700,30) | ForEach-Object {
+        [ClaudeWin32]::Beep([uint32]$_[0], [uint32]$_[1]) | Out-Null
+        Start-Sleep -Milliseconds 12
+    }
 } catch {}
 
 function Get-ParentPid([int]$procId) {
@@ -116,6 +131,9 @@ if ($targetHwnd -eq [IntPtr]::Zero) {
     }
 }
 
+# Load WinForms for COM message pump (needed to dispatch toast Activated callbacks)
+Add-Type -AssemblyName System.Windows.Forms
+
 # Load WinRT assemblies for toast notifications
 $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime]
 $null = [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType=WindowsRuntime]
@@ -129,11 +147,33 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 $script:done = $false
 $hwnd = $targetHwnd
 
+$script:done = $false
+$hwnd = $targetHwnd
+
+$toast.add_Activated(({
+    if ($hwnd -ne [IntPtr]::Zero) {
+        [ClaudeWin32]::AllowSetForegroundWindow(-1)
+        [ClaudeWin32]::ShowWindow($hwnd, 9)
+        [ClaudeWin32]::SetForegroundWindow($hwnd)
+    }
+    $script:done = $true
+}).GetNewClosure())
+
+$toast.add_Dismissed(({ $script:done = $true }).GetNewClosure())
+$toast.add_Failed(({ $script:done = $true }).GetNewClosure())
+
 # Use PowerShell's own AUMID so the notifier is always accepted
 $appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe'
 $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId)
 $notifier.Show($toast)
-# Toast is now managed by Windows — process can exit immediately
+
+# Stay alive and pump COM messages so Activated event can dispatch
+$elapsed = 0
+while (-not $script:done -and $elapsed -lt $timeout) {
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Milliseconds 30
+    $elapsed += 30
+}
 `;
 
 // --- 2. Spawn toast as a detached, hidden, independent process ---
