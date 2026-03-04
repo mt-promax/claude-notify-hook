@@ -15,6 +15,47 @@ process.on('uncaughtException', () => process.exit(0));
 
 const logPath = path.join(process.env.TEMP || process.env.USERPROFILE, 'claude-notify-error.log');
 
+// --- Config loading ---
+const DEFAULTS = {
+  sound: {
+    frequency: 880,
+    duration: 220
+  },
+  balloon: {
+    title: 'Claude Code',
+    message: 'Waiting for your input...',
+    timeout: 6000
+  }
+};
+
+const CONFIG_PATH = path.join(
+  process.env.USERPROFILE || process.env.HOME,
+  '.claude', 'hooks', 'notify-waiting-config.json'
+);
+
+function loadConfig() {
+  try {
+    let raw = fs.readFileSync(CONFIG_PATH, 'utf8');
+    raw = raw.replace(/^\uFEFF/, ''); // Strip UTF-8 BOM (Notepad writes this by default)
+    const user = JSON.parse(raw);
+    return {
+      sound: { ...DEFAULTS.sound, ...(user.sound || {}) },
+      balloon: { ...DEFAULTS.balloon, ...(user.balloon || {}) }
+    };
+  } catch (_) {
+    return DEFAULTS;
+  }
+}
+
+const config = (function () {
+  const c = loadConfig();
+  // Coerce numeric fields — user may save them as strings e.g. "frequency": "880"
+  c.sound.frequency = Number(c.sound.frequency) || DEFAULTS.sound.frequency;
+  c.sound.duration  = Number(c.sound.duration)  || DEFAULTS.sound.duration;
+  c.balloon.timeout = Number(c.balloon.timeout)  || DEFAULTS.balloon.timeout;
+  return c;
+}());
+
 // --- 1. Play sound immediately (fire-and-forget) ---
 try {
   execFile('powershell.exe', [
