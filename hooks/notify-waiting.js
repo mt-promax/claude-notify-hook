@@ -81,6 +81,7 @@ public class ClaudeWin32 {
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int dwProcessId);
+    [DllImport("kernel32.dll")] public static extern bool Beep(uint dwFreq, uint dwDuration);
 }
 "@
 
@@ -91,15 +92,15 @@ $timeout   = ${config.balloon.timeout}
 $frequency = ${config.sound.frequency}
 $duration  = ${config.sound.duration}
 
-# Generate configured tone -- Console.Beep wraps Win32 Beep; no assembly load needed
+# Generate configured tone via direct Win32 Beep -- works without a console window
 try {
-    [Console]::Beep($frequency, $duration)
+    [ClaudeWin32]::Beep([uint32]$frequency, [uint32]$duration) | Out-Null
 } catch {
     # Silent failure -- tone is non-critical; balloon still appears if audio unavailable
 }
 
-function Get-ParentPid([int]$pid) {
-    try { return [int](Get-CimInstance Win32_Process -Filter "ProcessId=$pid" -ErrorAction Stop).ParentProcessId }
+function Get-ParentPid([int]$procId) {
+    try { return [int](Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction Stop).ParentProcessId }
     catch { return 0 }
 }
 
@@ -183,7 +184,7 @@ try {
   ], {
     detached: true,
     windowsHide: true,
-    stdio: ['ignore', 'ignore', 'pipe']
+    stdio: 'ignore'
   });
 
   ps.on('error', (err) => {
@@ -191,17 +192,6 @@ try {
       const ts = new Date().toISOString();
       fs.appendFileSync(logPath, '[' + ts + '] SPAWN_ERROR: ' + err.message + '\n');
     } catch (_) {}
-  });
-
-  let errBuf = '';
-  ps.stderr.on('data', (chunk) => { errBuf += chunk.toString('utf8'); });
-  ps.stderr.on('close', () => {
-    if (errBuf.trim()) {
-      try {
-        const ts = new Date().toISOString();
-        fs.appendFileSync(logPath, '[' + ts + '] POWERSHELL_ERROR:\n' + errBuf + '\n');
-      } catch (_) {}
-    }
   });
 
   ps.unref();
