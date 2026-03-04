@@ -8,13 +8,18 @@
 
 const { execFile, spawn } = require('child_process');
 
+// Exit cleanly on any unhandled error so Claude Code sees a successful hook run.
+process.on('uncaughtException', () => process.exit(0));
+
 // --- 1. Play sound immediately (fire-and-forget) ---
-execFile('powershell.exe', [
-  '-WindowStyle', 'Hidden',
-  '-NonInteractive',
-  '-Command',
-  '[System.Media.SystemSounds]::Asterisk.Play()'
-], { windowsHide: true });
+try {
+  execFile('powershell.exe', [
+    '-WindowStyle', 'Hidden',
+    '-NonInteractive',
+    '-Command',
+    '[System.Media.SystemSounds]::Asterisk.Play()'
+  ], { windowsHide: true });
+} catch (_) {}
 
 // --- 2. Build balloon script ---
 //
@@ -65,6 +70,15 @@ for ($i = 0; $i -lt 15; $i++) {
     $walkPid = $parentId
 }
 
+# Fallback: search for WindowsTerminal.exe or known terminal processes by name
+if ($targetHwnd -eq [IntPtr]::Zero) {
+    $termNames = @('WindowsTerminal', 'wt', 'ConEmuC64', 'cmd', 'pwsh', 'powershell')
+    foreach ($name in $termNames) {
+        $p = Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+        if ($p) { $targetHwnd = $p.MainWindowHandle; break }
+    }
+}
+
 $n = New-Object System.Windows.Forms.NotifyIcon
 $n.Icon    = [System.Drawing.SystemIcons]::Information
 $n.Visible = $true
@@ -100,13 +114,15 @@ $n.Dispose()
 // spawn() bypasses the cmd.exe intermediary that exec() adds.
 // detached + stdio:'ignore' + unref() lets it outlive this hook script.
 const encoded = Buffer.from(balloon, 'utf16le').toString('base64');
-const ps = spawn('powershell.exe', [
-  '-WindowStyle', 'Hidden',
-  '-NonInteractive',
-  '-EncodedCommand', encoded
-], {
-  detached: true,
-  windowsHide: true,
-  stdio: 'ignore'
-});
-ps.unref();
+try {
+  const ps = spawn('powershell.exe', [
+    '-WindowStyle', 'Hidden',
+    '-NonInteractive',
+    '-EncodedCommand', encoded
+  ], {
+    detached: true,
+    windowsHide: true,
+    stdio: 'ignore'
+  });
+  ps.unref();
+} catch (_) {}
