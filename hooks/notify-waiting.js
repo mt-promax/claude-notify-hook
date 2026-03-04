@@ -87,6 +87,9 @@ $n = New-Object System.Windows.Forms.NotifyIcon
 $n.Icon    = [System.Drawing.SystemIcons]::Information
 $n.Visible = $true
 
+# RELY-03: stabilization delay prevents silent balloon suppression on shell registration race
+Start-Sleep -Milliseconds 100
+
 # On click: lift Windows foreground lock, restore + focus the terminal, then exit
 $n.add_BalloonTipClicked(({
     if ($targetHwnd -ne [IntPtr]::Zero) {
@@ -99,6 +102,14 @@ $n.add_BalloonTipClicked(({
 
 # On dismiss (timeout or X): just exit the message loop
 $n.add_BalloonTipClosed(({ [System.Windows.Forms.Application]::Exit() }).GetNewClosure())
+
+# RELY-03: confirm balloon appeared - writes to log for diagnostics
+$n.add_BalloonTipShown(({
+    try {
+        $ts = Get-Date -Format o
+        Add-Content -Path "$env:TEMP\claude-notify-error.log" -Value "[$ts] BalloonTipShown: notification appeared"
+    } catch {}
+}).GetNewClosure())
 
 $n.ShowBalloonTip(6000, 'Claude Code', 'Waiting for your input...', [System.Windows.Forms.ToolTipIcon]::Info)
 
