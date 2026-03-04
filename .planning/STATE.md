@@ -4,6 +4,21 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 01-reliability/01-01 — Phase 1 reliability shipped
+last_updated: "2026-03-04T11:48:54.521Z"
+last_activity: 2026-03-04 — Phase 1 executed; 01-01 shipped (spawn error capture, balloon stabilization, BalloonTipShown log)
+progress:
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: Completed 01-reliability/01-01 — Phase 1 reliability shipped
 last_updated: "2026-03-04T11:45:28.945Z"
 last_activity: 2026-03-04 — Phase 1 planned; 1 plan (01-01) verified and ready
 progress:
