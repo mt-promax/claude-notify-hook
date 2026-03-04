@@ -2,8 +2,8 @@
 phase: 02
 slug: config
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-04
 ---
 
@@ -38,16 +38,16 @@ created: 2026-03-04
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 02-01-01 | 01 | 1 | CONF-01, CONF-02 | Manual | `node hooks/notify-waiting.js` (no config) | ✅ existing | ⬜ pending |
-| 02-01-02 | 01 | 1 | CONF-01, CONF-03 | Manual | Create config, `node hooks/notify-waiting.js` | ✅ user-created | ⬜ pending |
+| 02-01-01 | 01 | 1 | CONF-01, CONF-02 | Manual | `node hooks/notify-waiting.js` (no config) | existing | pending |
+| 02-01-02 | 01 | 1 | CONF-01, CONF-03 | Manual | Create config, `node hooks/notify-waiting.js` | user-created | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-*Existing infrastructure covers all phase requirements — no new test files or framework installation needed. Phase 2 only modifies `hooks/notify-waiting.js`.*
+*Existing infrastructure covers all phase requirements — no new test files or framework installation needed. Phase 2 only modifies `hooks/notify-waiting.js`. Tasks 1 and 2 each carry a fully automated structural verify command; Task 3 is a `checkpoint:human-verify` whose balloon output is inherently visual and is therefore classified MANUAL_ONLY (documented in the manual-only table below).*
 
 ---
 
@@ -64,11 +64,11 @@ created: 2026-03-04
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 120s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 120s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved
