@@ -7,9 +7,13 @@
 'use strict';
 
 const { execFile, spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 // Exit cleanly on any unhandled error so Claude Code sees a successful hook run.
 process.on('uncaughtException', () => process.exit(0));
+
+const logPath = path.join(process.env.TEMP || process.env.USERPROFILE, 'claude-notify-error.log');
 
 // --- 1. Play sound immediately (fire-and-forget) ---
 try {
@@ -113,6 +117,7 @@ $n.Dispose()
 // --- 3. Spawn balloon as a detached, hidden, independent process ---
 // spawn() bypasses the cmd.exe intermediary that exec() adds.
 // detached + stdio:'ignore' + unref() lets it outlive this hook script.
+// stderr is piped so PowerShell errors surface to the error log (RELY-02).
 const encoded = Buffer.from(balloon, 'utf16le').toString('base64');
 try {
   const ps = spawn('powershell.exe', [
@@ -122,7 +127,26 @@ try {
   ], {
     detached: true,
     windowsHide: true,
-    stdio: 'ignore'
+    stdio: ['ignore', 'ignore', 'pipe']
   });
+
+  ps.on('error', (err) => {
+    try {
+      const ts = new Date().toISOString();
+      fs.appendFileSync(logPath, '[' + ts + '] SPAWN_ERROR: ' + err.message + '\n');
+    } catch (_) {}
+  });
+
+  let errBuf = '';
+  ps.stderr.on('data', (chunk) => { errBuf += chunk.toString('utf8'); });
+  ps.stderr.on('close', () => {
+    if (errBuf.trim()) {
+      try {
+        const ts = new Date().toISOString();
+        fs.appendFileSync(logPath, '[' + ts + '] POWERSHELL_ERROR:\n' + errBuf + '\n');
+      } catch (_) {}
+    }
+  });
+
   ps.unref();
 } catch (_) {}
