@@ -85,6 +85,38 @@ public class ClaudeWin32 {
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int dwProcessId);
     [DllImport("kernel32.dll")] public static extern bool Beep(uint dwFreq, uint dwDuration);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KEYBDINPUT {
+        public ushort wVk;
+        public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct INPUT {
+        public uint type;
+        public KEYBDINPUT ki;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint SendInput(uint cInputs, INPUT[] pInputs, int cbSize);
+
+    public const uint INPUT_KEYBOARD = 1;
+    public const uint KEYEVENTF_KEYDOWN = 0;
+    public const uint KEYEVENTF_KEYUP = 2;
+    public const ushort VK_MENU = 0x12;
 }
 "@
 
@@ -146,14 +178,36 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 $script:done = $false
 $hwnd = $targetHwnd
 
-$script:done = $false
-$hwnd = $targetHwnd
-
 $toast.add_Activated(({
     if ($hwnd -ne [IntPtr]::Zero) {
         [ClaudeWin32]::AllowSetForegroundWindow(-1)
         [ClaudeWin32]::ShowWindow($hwnd, 9)
-        [ClaudeWin32]::SetForegroundWindow($hwnd)
+        $pidDummy = [uint32]0
+        $targetTid = [ClaudeWin32]::GetWindowThreadProcessId($hwnd, [ref]$pidDummy)
+        $currentTid = [ClaudeWin32]::GetCurrentThreadId()
+        $attached = $false
+        try {
+            if ([ClaudeWin32]::AttachThreadInput($currentTid, $targetTid, $true)) {
+                [ClaudeWin32]::SetForegroundWindow($hwnd)
+                [ClaudeWin32]::AttachThreadInput($currentTid, $targetTid, $false)
+                $attached = $true
+            }
+        } catch {}
+        if (-not $attached) {
+            try {
+                $altDown = New-Object ClaudeWin32+INPUT
+                $altDown.type = [ClaudeWin32]::INPUT_KEYBOARD
+                $altDown.ki.wVk = [ClaudeWin32]::VK_MENU
+                $altDown.ki.dwFlags = [ClaudeWin32]::KEYEVENTF_KEYDOWN
+                $altUp = New-Object ClaudeWin32+INPUT
+                $altUp.type = [ClaudeWin32]::INPUT_KEYBOARD
+                $altUp.ki.wVk = [ClaudeWin32]::VK_MENU
+                $altUp.ki.dwFlags = [ClaudeWin32]::KEYEVENTF_KEYUP
+                $inputs = @($altDown, $altUp)
+                [ClaudeWin32]::SendInput(2, $inputs, [System.Runtime.InteropServices.Marshal]::SizeOf([type][ClaudeWin32+INPUT])) | Out-Null
+                [ClaudeWin32]::SetForegroundWindow($hwnd)
+            } catch {}
+        }
     }
     $script:done = $true
 }).GetNewClosure())
